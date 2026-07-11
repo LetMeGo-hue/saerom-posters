@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#1e3a5f">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>새롬고등학교 포스터 플랫폼</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>새롬고등학교 포스터 플랫폼</h1>
+      <div class="admin-bar">
+        {% if is_admin %}
+          <span class="admin-badge">관리자 모드</span>
+          <form action="{{ url_for('admin_logout') }}" method="post" class="admin-form">
+            <button type="submit" class="btn-admin-logout">로그아웃</button>
+          </form>
+        {% else %}
+          <details class="admin-login">
+            <summary>관리자 로그인</summary>
+            <form action="{{ url_for('admin_login') }}" method="post" class="admin-form">
+              <label for="admin-password">관리자 비밀번호</label>
+              <input type="password" id="admin-password" name="admin_password" required autocomplete="current-password" placeholder="관리자 비밀번호">
+              <button type="submit">로그인</button>
+            </form>
+          </details>
+        {% endif %}
+      </div>
+    </header>
+
+    <div class="flash-slot" aria-live="polite">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <ul class="flash-messages" id="flash-messages">
+            {% for category, message in messages %}
+              <li class="flash {{ category }}">{{ message }}</li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+      {% endwith %}
+    </div>
+
+    <section class="card">
+      <h2>새 포스터 등록</h2>
+      <form action="{{ url_for('upload') }}" method="post" enctype="multipart/form-data" class="form-grid">
+        <div class="field span-2">
+          <label for="title">제목 *</label>
+          <input type="text" id="title" name="title" required placeholder="예: 2026 새롬고 축제">
+        </div>
+
+        <div class="field span-2">
+          <label for="description">설명 *</label>
+          <textarea id="description" name="description" rows="4" required placeholder="행사 소개, 참가 안내 등"></textarea>
+        </div>
+
+        <div class="field">
+          <label for="category-select">카테고리</label>
+          <select id="category-select" name="category_choice">
+            <option value="">선택 안 함</option>
+            {% for cat in categories %}
+              <option value="{{ cat }}">{{ cat }}</option>
+            {% endfor %}
+            <option value="{{ category_custom }}">직접 추가...</option>
+          </select>
+          <input type="text" id="category-custom" name="category_custom" class="category-custom" hidden placeholder="새 카테고리 입력">
+        </div>
+
+        <div class="field">
+          <label for="location">장소</label>
+          <input type="text" id="location" name="location" placeholder="예: 학교 운동장">
+        </div>
+
+        <div class="field">
+          <label for="start_date">시작일</label>
+          <input type="date" id="start_date" name="start_date" value="{{ today }}">
+        </div>
+
+        <div class="field">
+          <label for="end_date">종료일</label>
+          <input type="date" id="end_date" name="end_date">
+        </div>
+
+        <div class="field span-2">
+          <label for="detail_url">상세 링크</label>
+          <input type="url" id="detail_url" name="detail_url" placeholder="https://...">
+        </div>
+
+        <div class="field span-2">
+          <label for="delete_pin">삭제 비밀번호 *</label>
+          <input type="password" id="delete_pin" name="delete_pin" required minlength="4" placeholder="4자 이상, 나중에 삭제할 때 사용">
+          <p class="field-hint">등록한 본인만 이 비밀번호로 삭제할 수 있습니다.</p>
+        </div>
+
+        <div class="field span-2">
+          <label for="photo">포스터 이미지</label>
+          <input type="file" id="photo" name="photo" accept="image/*">
+          <div id="photo-preview" class="photo-preview" hidden>
+            <img id="photo-preview-img" alt="선택한 이미지 미리보기">
+            <button type="button" id="photo-preview-clear" class="preview-clear">선택 취소</button>
+          </div>
+        </div>
+
+        <div class="field span-2">
+          <button type="submit">저장하기</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="card">
+      <div class="list-header">
+        <h2>등록된 포스터 (<span id="poster-count">{{ posters|length }}</span>건)</h2>
+        {% if posters %}
+          <label class="sort-control" for="poster-sort">
+            <span class="sort-label">정렬</span>
+            <select id="poster-sort" aria-label="포스터 정렬">
+              <option value="newest">최신순</option>
+              <option value="oldest">오래된 순</option>
+              <option value="date">날짜순</option>
+            </select>
+          </label>
+        {% endif %}
+      </div>
+
+      {% if posters %}
+        <div class="post-list" id="post-list">
+          {% for poster in posters %}
+            <article class="post-item" data-created-at="{{ poster.created_at }}" data-start-date="{{ poster.start_date or '' }}">
+              {% if poster.image_path %}
+                <img src="{{ poster_image_src(poster) }}" alt="{{ poster.title }}">
+              {% else %}
+                <div class="no-photo">이미지 없음</div>
+              {% endif %}
+              <div class="post-body">
+                <h3><a href="/p/{{ poster.slug }}">{{ poster.title }}</a></h3>
+                {% if poster.category %}
+                  <span class="badge">{{ poster.category }}</span>
+                {% endif %}
+                <p class="meta">
+                  {% if poster.start_date %}{{ poster.start_date }}{% endif %}
+                  {% if poster.end_date %} ~ {{ poster.end_date }}{% endif %}
+                  {% if poster.location %} · {{ poster.location }}{% endif %}
+                </p>
+                <p class="content">{{ poster.description }}</p>
+                <details class="delete-panel">
+                  <summary class="delete-toggle">삭제</summary>
+                  {% if is_admin %}
+                  <form action="{{ url_for('delete_poster', slug=poster.slug) }}" method="post" class="delete-form" data-admin="1">
+                    <p class="field-hint">관리자로 로그인되어 있어 비밀번호 없이 삭제할 수 있습니다.</p>
+                    <button type="submit" class="btn-delete">삭제하기</button>
+                  </form>
+                  {% else %}
+                  <form action="{{ url_for('delete_poster', slug=poster.slug) }}" method="post" class="delete-form">
+                    <label for="delete-password-{{ poster.id }}">삭제 비밀번호</label>
+                    <input type="password" id="delete-password-{{ poster.id }}" name="delete_password" required minlength="4" autocomplete="current-password" placeholder="등록 시 설정한 비밀번호">
+                    <button type="submit" class="btn-delete">삭제하기</button>
+                  </form>
+                  {% endif %}
+                  <p class="delete-status" hidden></p>
+                </details>
+              </div>
+            </article>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="empty">아직 등록된 포스터가 없습니다.</p>
+      {% endif %}
+    </section>
+  </div>
+
+  <script>
+    (function () {
+      var input = document.getElementById("photo");
+      var preview = document.getElementById("photo-preview");
+      var previewImg = document.getElementById("photo-preview-img");
+      var clearBtn = document.getElementById("photo-preview-clear");
+      var objectUrl = null;
+
+      function revokeUrl() {
+        if (objectUrl) {
+          URL.revokeObjectURL(objectUrl);
+          objectUrl = null;
+        }
+      }
+
+      function clearPreview() {
+        revokeUrl();
+        input.value = "";
+        previewImg.removeAttribute("src");
+        preview.hidden = true;
+      }
+
+      input.addEventListener("change", function () {
+        revokeUrl();
+        var file = input.files && input.files[0];
+        if (!file || !file.type.startsWith("image/")) {
+          clearPreview();
+          return;
+        }
+        objectUrl = URL.createObjectURL(file);
+        previewImg.src = objectUrl;
+        preview.hidden = false;
+      });
+
+      clearBtn.addEventListener("click", clearPreview);
+    })();
+
+    (function () {
+      var select = document.getElementById("category-select");
+      var custom = document.getElementById("category-custom");
+      if (!select || !custom) return;
+
+      function toggleCustom() {
+        var isCustom = select.value === "{{ category_custom }}";
+        custom.hidden = !isCustom;
+        custom.required = isCustom;
+        if (!isCustom) custom.value = "";
+      }
+
+      select.addEventListener("change", toggleCustom);
+      toggleCustom();
+    })();
+
+    (function () {
+      var list = document.getElementById("post-list");
+      var select = document.getElementById("poster-sort");
+      if (!list || !select) return;
+
+      function sortKey(item, mode) {
+        if (mode === "date") {
+          return item.dataset.startDate || "0000-00-00";
+        }
+        return item.dataset.createdAt || "";
+      }
+
+      function sortPosters(mode) {
+        var items = Array.prototype.slice.call(list.children);
+        items.sort(function (a, b) {
+          var av = sortKey(a, mode);
+          var bv = sortKey(b, mode);
+          if (mode === "oldest") return av < bv ? -1 : av > bv ? 1 : 0;
+          if (mode === "date") {
+            if (av === "0000-00-00" && bv !== "0000-00-00") return 1;
+            if (bv === "0000-00-00" && av !== "0000-00-00") return -1;
+            return av < bv ? -1 : av > bv ? 1 : 0;
+          }
+          return av > bv ? -1 : av < bv ? 1 : 0;
+        });
+        items.forEach(function (item) { list.appendChild(item); });
+      }
+
+      select.addEventListener("change", function () {
+        sortPosters(select.value);
+      });
+    })();
+
+    (function () {
+      var flashes = document.querySelectorAll(".flash-messages .flash");
+      flashes.forEach(function (el) {
+        setTimeout(function () {
+          el.classList.add("flash-hide");
+        }, 5000);
+      });
+    })();
+
+    (function () {
+      function showInlineMessage(panel, text, isError) {
+        var status = panel.querySelector(".delete-status");
+        if (!status) return;
+        status.hidden = false;
+        status.textContent = text;
+        status.className = "delete-status " + (isError ? "is-error" : "is-success");
+      }
+
+      function updatePosterCount() {
+        var countEl = document.getElementById("poster-count");
+        var list = document.getElementById("post-list");
+        if (!countEl || !list) return;
+        countEl.textContent = String(list.children.length);
+      }
+
+      document.querySelectorAll(".delete-form").forEach(function (form) {
+        form.addEventListener("submit", function (e) {
+          e.preventDefault();
+
+          var isAdmin = form.getAttribute("data-admin") === "1";
+          var confirmMsg = isAdmin
+            ? "관리자 권한으로 이 포스터를 삭제할까요?"
+            : "이 포스터를 삭제할까요?";
+          if (!window.confirm(confirmMsg)) return;
+
+          var panel = form.closest(".delete-panel");
+          var item = form.closest(".post-item");
+          var btn = form.querySelector(".btn-delete");
+          var originalText = btn ? btn.textContent : "";
+
+          if (btn) {
+            btn.disabled = true;
+            btn.textContent = "삭제 중…";
+          }
+
+          fetch(form.action, {
+            method: "POST",
+            body: new FormData(form),
+            headers: {
+              "X-Requested-With": "fetch",
+              "Accept": "application/json"
+            },
+            credentials: "same-origin"
+          })
+            .then(function (res) {
+              return res.json().then(function (data) {
+                return { okHttp: res.ok, data: data };
+              }).catch(function () {
+                return { okHttp: res.ok, data: { ok: false, error: "서버 응답을 읽지 못했습니다." } };
+              });
+            })
+            .then(function (result) {
+              if (result.data && result.data.ok) {
+                if (item) {
+                  item.remove();
+                  updatePosterCount();
+                }
+                var list = document.getElementById("post-list");
+                if (list && list.children.length === 0) {
+                  var card = list.parentElement;
+                  list.remove();
+                  if (card) {
+                    var empty = document.createElement("p");
+                    empty.className = "empty";
+                    empty.textContent = "아직 등록된 포스터가 없습니다.";
+                    card.appendChild(empty);
+                  }
+                }
+                return;
+              }
+              var msg = (result.data && result.data.error) || "삭제에 실패했습니다.";
+              showInlineMessage(panel, msg, true);
+              if (btn) {
+                btn.disabled = false;
+                btn.textContent = originalText;
+              }
+            })
+            .catch(function () {
+              showInlineMessage(panel, "네트워크 오류로 삭제하지 못했습니다. 잠시 후 다시 시도해 주세요.", true);
+              if (btn) {
+                btn.disabled = false;
+                btn.textContent = originalText;
+              }
+            });
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -259,41 +259,51 @@ def delete_poster(slug):
     if request.method == "GET":
         return redirect(url_for("index"))
 
+    wants_json = (
+        request.headers.get("X-Requested-With") == "fetch"
+        or "application/json" in (request.headers.get("Accept") or "")
+    )
+
+    def fail(message: str, status: int = 400):
+        if wants_json:
+            return jsonify({"ok": False, "error": message}), status
+        flash(message, "error")
+        return redirect(url_for("index"))
+
+    def ok(message: str):
+        if wants_json:
+            return jsonify({"ok": True, "message": message, "slug": slug})
+        flash(message, "success")
+        return redirect(url_for("index"))
+
     try:
         poster = db.get_poster_by_slug(slug)
     except Exception as exc:
         app.logger.exception("포스터 조회 실패")
-        flash(f"포스터를 불러오지 못했습니다: {exc}", "error")
-        return redirect(url_for("index"))
+        return fail(f"포스터를 불러오지 못했습니다: {exc}", 500)
 
     if not poster:
-        flash("포스터를 찾을 수 없습니다.", "error")
-        return redirect(url_for("index"))
+        return fail("포스터를 찾을 수 없습니다.", 404)
 
     password = request.form.get("delete_password", "").strip()
     try:
         allowed = auth.can_delete_poster(poster, password)
     except Exception:
         app.logger.exception("삭제 권한 확인 실패")
-        flash("삭제 확인 중 오류가 났습니다. 관리자 로그인 후 삭제해 주세요.", "error")
-        return redirect(url_for("index"))
+        return fail("삭제 확인 중 오류가 났습니다. 관리자 로그인 후 삭제해 주세요.", 500)
 
     if not allowed:
         if not poster.get("delete_pin_hash") and not auth.is_admin_logged_in():
-            flash("이 포스터에는 삭제 비밀번호가 없습니다. 관리자 로그인 후 삭제해 주세요.", "error")
-        else:
-            flash("삭제 비밀번호가 올바르지 않습니다. 등록 시 설정한 비밀번호만 사용할 수 있습니다.", "error")
-        return redirect(url_for("index"))
+            return fail("이 포스터에는 삭제 비밀번호가 없습니다. 관리자 로그인 후 삭제해 주세요.")
+        return fail("삭제 비밀번호가 올바르지 않습니다. 등록 시 설정한 비밀번호만 사용할 수 있습니다.")
 
     try:
         db.delete_poster(slug)
     except Exception as exc:
         app.logger.exception("포스터 삭제 실패")
-        flash(f"삭제 중 오류가 발생했습니다: {exc}", "error")
-        return redirect(url_for("index"))
+        return fail(f"삭제 중 오류가 발생했습니다: {exc}", 500)
 
-    flash(f"포스터 '{poster['title']}'가 삭제되었습니다.", "success")
-    return redirect(url_for("index"))
+    return ok(f"포스터 '{poster['title']}'가 삭제되었습니다.")
 
 
 # ── 공개 포스터 페이지 ─────────────────────────────────────
