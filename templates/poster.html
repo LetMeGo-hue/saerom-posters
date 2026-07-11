@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#1e3a5f">
+  <title>{{ poster.title }} — 새롬고등학교</title>
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="{{ poster.title }}">
+  <meta property="og:description" content="{{ poster.description[:200] }}">
+  <meta property="og:url" content="{{ public_url }}">
+  {% if image_url %}
+  <meta property="og:image" content="{{ image_url }}">
+  {% endif %}
+
+  <!-- Schema.org Event (JSON-LD) -->
+  <script type="application/ld+json">{{ event_json_ld | tojson }}</script>
+
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="public-page">
+  <div class="container narrow">
+    <article class="poster-public">
+      {% if poster.image_path %}
+        <img class="poster-hero" src="{{ poster_image_src(poster) }}" alt="{{ poster.title }}">
+      {% endif %}
+
+      <header class="poster-header">
+        {% if poster.category %}
+          <span class="badge">{{ poster.category }}</span>
+        {% endif %}
+        <h1>{{ poster.title }}</h1>
+        <p class="meta">
+          {% if poster.start_date %}
+            {{ poster.start_date }}{% if poster.end_date %} ~ {{ poster.end_date }}{% endif %}
+          {% endif %}
+        </p>
+      </header>
+
+      <section class="poster-info">
+        {% if poster.location %}
+          <p><strong>장소</strong> {{ poster.location }}</p>
+        {% endif %}
+      </section>
+
+      <section class="poster-description">
+        <p>{{ poster.description }}</p>
+      </section>
+
+      {% if poster.detail_url %}
+        <p><a class="btn-link" href="{{ poster.detail_url }}" target="_blank" rel="noopener">상세 정보 보기</a></p>
+      {% endif %}
+
+      <footer class="poster-footer">
+        <a href="/">← 포스터 플랫폼으로</a>
+      </footer>
+    </article>
+  </div>
+</body>
+</html>

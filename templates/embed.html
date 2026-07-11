@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>{{ poster.title }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <style>
+    body { margin: 0; background: #fff; padding: 0; }
+  </style>
+</head>
+<body>
+  <a class="embed-card" href="{{ public_url }}" target="_blank" rel="noopener">
+    {% if poster.image_path %}
+      <img src="{{ poster_image_src(poster) }}" alt="{{ poster.title }}">
+    {% else %}
+      <div class="embed-no-image">포스터</div>
+    {% endif %}
+    <div class="embed-body">
+      {% if poster.category %}
+        <span class="embed-category">{{ poster.category }}</span>
+      {% endif %}
+      <h3>{{ poster.title }}</h3>
+      {% if poster.start_date %}
+        <p class="embed-date">{{ poster.start_date }}{% if poster.end_date %} ~ {{ poster.end_date }}{% endif %}</p>
+      {% endif %}
+      {% if poster.location %}
+        <p class="embed-location">{{ poster.location }}</p>
+      {% endif %}
+    </div>
+  </a>
+</body>
+</html>
