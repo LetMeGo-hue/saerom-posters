@@ -4,9 +4,15 @@ import os
 import secrets
 
 from flask import session
-from werkzeug.security import check_password_hash
+from werkzeug.security import check_password_hash, generate_password_hash
 
 SESSION_ADMIN_KEY = "is_admin"
+# Render Free 메모리 부족 방지 — scrypt 대신 pbkdf2 사용
+PIN_HASH_METHOD = "pbkdf2:sha256"
+
+
+def hash_delete_pin(pin: str) -> str:
+    return generate_password_hash(pin, method=PIN_HASH_METHOD)
 
 
 def verify_admin_password(password: str) -> bool:
@@ -49,6 +55,7 @@ def can_delete_poster(poster, password: str = "") -> bool:
         return False
 
     try:
-        return check_password_hash(pin_hash, password)
-    except (TypeError, ValueError):
+        return bool(check_password_hash(pin_hash, password))
+    except Exception:
+        # scrypt 등으로 메모리 부족/오류 나도 서버가 죽지 않게
         return False

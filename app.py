@@ -24,7 +24,6 @@ from flask import (
     url_for,
 )
 from werkzeug.middleware.proxy_fix import ProxyFix
-from werkzeug.security import generate_password_hash
 from werkzeug.utils import secure_filename
 
 import auth
@@ -243,7 +242,7 @@ def upload():
                 "detail_url": detail_url,
                 "image_path": image_path,
                 "image_url": image_url,
-                "delete_pin_hash": generate_password_hash(delete_pin),
+                "delete_pin_hash": auth.hash_delete_pin(delete_pin),
             }
         )
     except Exception as exc:
@@ -260,13 +259,26 @@ def delete_poster(slug):
     if request.method == "GET":
         return redirect(url_for("index"))
 
-    poster = db.get_poster_by_slug(slug)
+    try:
+        poster = db.get_poster_by_slug(slug)
+    except Exception as exc:
+        app.logger.exception("포스터 조회 실패")
+        flash(f"포스터를 불러오지 못했습니다: {exc}", "error")
+        return redirect(url_for("index"))
+
     if not poster:
         flash("포스터를 찾을 수 없습니다.", "error")
         return redirect(url_for("index"))
 
     password = request.form.get("delete_password", "").strip()
-    if not auth.can_delete_poster(poster, password):
+    try:
+        allowed = auth.can_delete_poster(poster, password)
+    except Exception:
+        app.logger.exception("삭제 권한 확인 실패")
+        flash("삭제 확인 중 오류가 났습니다. 관리자 로그인 후 삭제해 주세요.", "error")
+        return redirect(url_for("index"))
+
+    if not allowed:
         if not poster.get("delete_pin_hash") and not auth.is_admin_logged_in():
             flash("이 포스터에는 삭제 비밀번호가 없습니다. 관리자 로그인 후 삭제해 주세요.", "error")
         else:
