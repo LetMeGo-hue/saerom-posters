@@ -1,1 +1,0 @@
-# saerom-posters
